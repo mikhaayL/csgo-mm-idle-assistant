@@ -1,0 +1,1 @@
+# csgo-mm-idle-assistant

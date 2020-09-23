@@ -1,0 +1,3 @@
+-novid -no-browser -nohltv -nojoy +violence_hblood 0
+130000
+10000

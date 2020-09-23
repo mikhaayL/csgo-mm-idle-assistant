@@ -1,0 +1,5 @@
+mm_dedicated_search_maxping 350
+fps_max_menu 30
+fps_max 30
+volume 0
++duck

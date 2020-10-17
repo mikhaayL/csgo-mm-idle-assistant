@@ -1,7 +1,5 @@
 #Include, Sort.ahk
 
-SetKeyDelay 0
-
 SuspendToggle := false
 
 WaitForRelease() {

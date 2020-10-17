@@ -1,9 +1,6 @@
 #Include, Defaults.ahk
 #Include, Beeps.ahk
 
-SetKeyDelay 0
-SetMouseDelay 0
-
 class Account {
 	__New(login, pass, code, setups) {
 		this.login := login
@@ -17,10 +14,10 @@ class Account {
 			return
 
 		MouseClick, left, 22, 65 ; play button
-		Sleep, 300
+		Sleep, 500
 
 		MouseClick, left, 80, 80 ; competitive button
-		Sleep, 100
+		Sleep, 50
 	}
 
 	ClickFindGame() {
@@ -57,9 +54,6 @@ class Account {
 
 		MouseClick, left, 430, 253 ; invite
 		Sleep 300
-
-		; MouseClick, left, 310, 231 ; close profile
-		; Sleep 300
 
 		MouseClick, left, 417, 295 ; close popup
 		Sleep 300
@@ -223,6 +217,7 @@ class Account {
 			return
 
 		steamUid := this.steamUid
+		WinActivate ahk_id %steamUid%
 		WinMove, ahk_id %steamUid%, , x, y, width, height
 	}
 

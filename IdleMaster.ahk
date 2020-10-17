@@ -2,8 +2,6 @@
 #Include, Account.ahk
 #Include, Beeps.ahk
 
-SetKeyDelay 0
-
 class IdleMaster {
 	__New() {
 		this.cycleToggle := false
@@ -138,8 +136,12 @@ class IdleMaster {
 		this.toNextMatch := true
 
 		While, this.cycleToggle && this.toNextMatch {
+			this.SetupActiveWindow()
+
 			if (this.cycleToggle)
 				this.FindGame()
+
+			this.ReturnToActiveWindow()
 
 			Sleep, this.startDelay
 
@@ -380,13 +382,14 @@ class IdleMaster {
 
 	FormSteamLayout(team) {
 		firstTeam := this.accounts[1].login == team[1].login
-		y := firstTeam ? 30 : 540
-		padding := 20
+		y := firstTeam ? 100 : 600
+		padding := 50
+
 		Loop, % team.Length()
 		{
-			width := 300
-			height := 300
-			x := (A_Index * padding - padding) + (A_Index * width - width)
+			width := 320
+			height := 320
+			x := (A_Index * padding) + (A_Index * width - width)
 			team[A_Index].MoveSteam(x, y, width, height)
 		}
 	}
@@ -419,14 +422,44 @@ class IdleMaster {
 			team[A_Index].LeaveFromLobby()
 	}
 
-	Disconnect(team, mod := 0) {
-		Loop, % team.Length() - mod
-			team[A_Index].Disconnect()
+	SetupActiveWindow() {
+		BeforeActionBeep()
+
+		WinGet, uid, ID, A
+		MouseGetPos, xpos, ypos
+
+		this.activeWindow := uid
+		this.activeXpos := xpos
+		this.activeYpos := ypos
 	}
 
-	Reconnect(team, mod := 0) {
-		Loop, % team.Length() - mod
+	ReturnToActiveWindow() {
+		uid := this.activeWindow
+		WinActivate ahk_id %uid%
+
+		xpos := this.activeXpos
+		ypos := this.activeYpos
+		MouseMove, xpos, ypos, 0
+
+		AfterActionBeep()
+	}
+
+	Disconnect(team) {
+		this.SetupActiveWindow()
+
+		Loop, % team.Length()
+			team[A_Index].Disconnect()
+
+		this.ReturnToActiveWindow()
+	}
+
+	Reconnect(team) {
+		this.SetupActiveWindow()
+
+		Loop, % team.Length()
 			team[A_Index].Reconnect()
+
+		this.ReturnToActiveWindow()
 	}
 
 	RunSteamClients() {

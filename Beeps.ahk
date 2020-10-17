@@ -19,3 +19,11 @@ SuccessBeep() {
 FailureBeep() {
 	SoundBeep, 500, 500
 }
+
+BeforeActionBeep() {
+	SoundBeep, 1000, 100
+}
+
+AfterActionBeep() {
+	SoundBeep, 500, 100
+}

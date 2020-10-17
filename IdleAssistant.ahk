@@ -1,10 +1,11 @@
-SetKeyDelay 0
-SetMouseDelay 0
+SetKeyDelay, 0
+SetMouseDelay, 0
+SetWinDelay, 0
 
 im := new IdleMaster()
 
 *>#Enter::im.Play()
-*>^End::im.StopNextMatch()
+*>#End::im.StopNextMatch()
 *>^Home::im.InsertSetup()
 
 *>^PgDn::im.FindDerankGame()
@@ -14,14 +15,14 @@ im := new IdleMaster()
 *>^Down::im.CancelReconnectCycle()
 
 *<#A::im.AcceptGame(im.team1)
-*<#T::im.CreateTeam(im.team1)
-*<#R::im.DisbandTeam(im.team1)
+*<#R::im.CreateTeam(im.team1)
+*<#D::im.DisbandTeam(im.team1)
 *<#Left::im.Disconnect(im.team1)
 *<#Right::im.Reconnect(im.team1)
 
 *>#A::im.AcceptGame(im.team2)
-*>#T::im.CreateTeam(im.team2)
-*>#R::im.DisbandTeam(im.team2)
+*>#R::im.CreateTeam(im.team2)
+*>#D::im.DisbandTeam(im.team2)
 *>#Left::im.Disconnect(im.team2)
 *>#Right::im.Reconnect(im.team2)
 

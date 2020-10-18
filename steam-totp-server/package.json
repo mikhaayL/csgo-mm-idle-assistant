@@ -1,0 +1,10 @@
+{
+	"name": "steam-totp-server",
+	"private": true,
+	"scripts": {
+		"serve": "node steam-totp-server.js"
+	},
+	"dependencies": {
+		"steam-totp": "^2.1.1"
+	}
+}

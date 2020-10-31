@@ -1,232 +1,134 @@
-#Include, Defaults.ahk
-#Include, Beeps.ahk
-
 class Account {
-	__New(login, pass, code, setups) {
+	__New(login, pass, code, secret) {
 		this.login := login
 		this.password := pass
 		this.friendCode := code
-		this.setups := setups
-	}
-
-	OpenFindGame() {
-		if (!this.ActivateGame())
-			return
-
-		MouseClick, left, 22, 65 ; play button
-		Sleep, 500
-
-		MouseClick, left, 80, 80 ; competitive button
-		Sleep, 50
-	}
-
-	ClickFindGame() {
-		if (!this.ActivateGame())
-			return
-
-		MouseClick, left, 450, 460 ; competitive button
-		Sleep, 50
-	}
-
-	SendInvite(code) {
-		if (!this.ActivateGame())
-			return
-
-		this.OpenPanel()
-
-		MouseClick, left, 620, 111 ; mail button
-		Sleep 400
-
-		MouseClick, left, 493, 139 ; add button
-		Sleep 300
-
-		MouseClick, left, 310, 231 ; click to input
-		Sleep 200
-
-		SendInput %code%
-
-		Sleep 200
-		MouseClick, left, 339, 231 ; submit
-		Sleep 300
-
-		MouseClick, left, 218, 251 ; open profile
-		Sleep 300
-
-		MouseClick, left, 430, 253 ; invite
-		Sleep 300
-
-		MouseClick, left, 417, 295 ; close popup
-		Sleep 300
-	}
-
-	ToLobby() {
-		if (!this.ActivateGame())
-			return
-
-		this.OpenPanel()
-		MouseClick, left, 618, 123
-		Sleep 200
-		MouseClick, left, 618, 123
-		Sleep 200
-	}
-
-	LeaveFromLobby() {
-		if (!this.ActivateGame())
-			return
-
-		this.OpenPanel()
-		MouseClick, left, 621, 13
-		Sleep 100
-		MouseClick, left, 621, 43
-		Sleep 100
+		this.secret := secret
 	}
 
 	OpenPanel() {
-		this.ClickWatchTab()
-		MouseClick, left, 630, 470
-		Sleep 500
+		MouseClick(this.uid,  20,  20, , 50)
+		MouseClick(this.uid, 630, 470, , 300)
 	}
 
-	ClickWatchTab() {
-		MouseClick, left, 21, 195
-		Sleep, 300
-		MouseClick, left, 124, 56
-		Sleep, 100
+	OpenFindGame() {
+		MouseClick(this.uid, 22, 65, , 500) ; play button
+		MouseClick(this.uid, 80, 80, , 50)  ; competitive button
 	}
 
-	Reconnect() {
-		if (!this.ActivateGame())
-			return
+	ClickFindGame(state := true) {
+		findGameButtonColor := GetPixelColor(this.uid, 455, 458)
+		SplitRGBColor(findGameButtonColor, red, green, blue)
 
-		MouseClick, left, 454, 26, 3
-		Sleep, 100
+		if (state && red < 40 || !state && red > 40)
+			MouseClick(this.uid, 455, 458, , 50) ; start play button
 	}
 
-	Disconnect() {
-		if (!this.ActivateGame())
-			return
+	SendInvite(code) {
+		this.OpenPanel()
 
-		Send {F4}
-		Sleep, 50
-		Send {F4}
-		Sleep, 50
-		Send {F4}
-		Sleep, 50
+		MouseClick(this.uid, 620, 111, , 300) ; mail button
+		MouseClick(this.uid, 493, 136, , 300) ; add button
+
+		MouseClick(this.uid, 250, 230, , 50)  ; click to input
+		SendText(this.uid, code, , 100)
+		MouseClick(this.uid, 355, 231, , 300) ; submit
+
+		inviteTitleColor := GetPixelColor(this.uid, 210, 176)
+		SplitRGBColor(inviteTitleColor, red, green, blue)
+
+		if (red > 50) {
+			MouseClick(this.uid, 233, 250, , 300) ; open profile
+			MouseClick(this.uid, 445, 250, , 300) ; invite
+		}
+
+		MouseClick(this.uid, 400, 295, , 300) ; close popup
+
+		if (red < 50)
+			this.SendInvite(code)
 	}
 
-	HaveAccept() {
-		if (!this.ActivateGame())
+	LobbyIsFull() {
+		if (!this.uid)
 			return false
 
-		PixelGetColor, acceptColor, 365, 258
-		SplitBGRColor(acceptColor, red, green, blue) 
+		lobbyColor := GetPixelColor(this.uid, 600, 180)
+		SplitRGBColor(lobbyColor, red, green, blue)
+
+		return red < 45
+	}
+
+	ToLobby() {
+		this.OpenPanel()
+		MouseClick(this.uid, 615, 125)
+	}
+
+	LeaveFromLobby() {
+		this.OpenPanel()
+		MouseClick(this.uid, 620, 13, , 50)
+		MouseClick(this.uid, 620, 43, , 50)
+	}
+
+	HasAccept() {
+		if (!this.uid)
+			return false
+
+		acceptColor := GetPixelColor(this.uid, 278, 263)
+		SplitRGBColor(acceptColor, red, green, blue)
 
 		return red < 100 && blue < 100 && green > 150
 	}
 
 	ClickAccept() {
-		if (!this.ActivateGame())
-			return
-
-		MouseClick, left, 365, 258, 3
-		Sleep, 100
+		MouseClick(this.uid, 278, 263)
 	}
 
-	InsertIdentity(useSteamProcess := true) {
-		if (useSteamProcess) {
-			if (!this.ActivateSteam())
-				return
-
-			MouseClick, left, 130, 100
-			Sleep, 100
-		}
-
-		login := this.login
-		SendInput {Text}%login%
-
-		Sleep 100
-		SendInput {Tab Down}
-		Sleep 50
-		SendInput {Tab Up}
-
-		password := this.password
-		SendInput {Text}%password%
-
-		Sleep 50
-		SendInput {Enter Down}
-		Sleep 50
-		SendInput {Enter Up}
-	}
-
-	InsertSetup() {
-		if (!this.ActivateGame())
-			return
-
-		Loop, % this.setups.Length()
+	InsertSetup(setups) {
+		Loop, % setups.Length()
 		{
-			setups := this.setups[A_Index]
-			SendInput {Text}%setups%
-			SendInput {Enter}
-			Sleep 50
+			row := setups[A_Index]
+			SendText(this.uid, row)
+			SendKey(this.uid, "{Enter}", , 50)
 		}
 
-		SendInput bind "F4" "disconnect" {Enter}
-		Sleep 50
+		SendText(this.uid, "bind ""F4"" ""disconnect""")
+		SendKey(this.uid, "{Enter}", , 50)
 
-		SendInput {Esc}
-		Sleep, 50
+		SendText(this.uid, "bind ""F8"" ""quit""")
+		SendKey(this.uid, "{Enter}", , 50)
+
+		SendKey(this.uid, "{Esc}", , 50)
 	}
 
-	ActivateGame() {
-		if (!this.gameUid) {
-			FailureBeep()
-			return false
-		}
-
-		return this.Activate(this.gameUid)
+	Reconnect() {
+		MouseClick(this.uid, 450, 25)
 	}
 
-	ActivateSteam() {
-		if (!this.steamUid) {
-			FailureBeep()
-			return false
-		}
-
-		return this.Activate(this.steamUid)
-	}
-
-	Activate(uid) {
-		WinActivate ahk_id %uid%
-
-		WaitForRelease()
-		Sleep 100
-
-		return true
-	}
-
-	MoveGame(x, y) {
-		if (!this.gameUid)
-			return
-
-		gameUid := this.gameUid
-		WinMove, ahk_id %gameUid%, , x, y
-	}
-
-	MoveSteam(x, y, width, height) {
-		if (!this.steamUid)
-			return
-
-		steamUid := this.steamUid
-		WinActivate ahk_id %steamUid%
-		WinMove, ahk_id %steamUid%, , x, y, width, height
+	Disconnect() {
+		SendKey(this.uid, "{F4}")
 	}
 
 	CloseGame() {
-		if (!this.ActivateGame())
-			return
+		SendKey(this.uid, "{F8}")
 
-		Send {``}
-		Sleep, 100
-		Send quit {Enter}
+		SendKey(this.uid, "{``}", , 50)
+		SendKey(this.uid, "{F8}")
+
+		SendKey(this.uid, "{ё}", , 50)
+		SendKey(this.uid, "{F8}")
+	}
+
+	Activate(beep := true) {
+		if (!this.uid) {
+			if (beep)
+				FailureBeep()
+
+			return false
+		}
+
+		uid := this.uid
+		WinActivate, ahk_id %uid%
+
+		return true
 	}
 }

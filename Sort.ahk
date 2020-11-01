@@ -1,33 +1,3 @@
-; order A: Ascending, D: Descending
-SimpleSortArray(array, order = "A") {
-	maxIndex := ObjMaxIndex(array)
-	partitions := "|" ObjMinIndex(array) "," maxIndex
-	Loop {
-		this_partition := SubStr(partitions, InStr(partitions, "|", false, 0) + 1)
-		comma := InStr(this_partition, ",")
-		spos := pivot := SubStr(this_partition, 1, comma - 1)
-		epos := SubStr(this_partition, comma + 1)
-
-		if (order = "A") {
-			Loop, % epos - spos
-				if (array[pivot] > array[A_Index + spos])
-					ObjInsert(array, pivot++, ObjRemove(array, A_Index + spos))
-		} else {
-			Loop, % epos - spos
-				if (array[pivot] < array[A_Index + spos])
-					ObjInsert(array, pivot++, ObjRemove(array, A_Index + spos))
-		}
-
-		partitions := SubStr(partitions, 1, InStr(partitions, "|", false, 0) - 1)
-
-		if (pivot - spos) > 1                    ;if more than one elements
-			partitions .= "|" spos "," pivot-1   ;the left partition
-		if (epos - pivot) > 1                    ;if more than one elements
-			partitions .= "|" pivot + 1 "," epos ;the right partition
-
-	} Until !partitions
-}
-
 SortObjectArrayBy(param_collection, param_iteratees := "") {
 	l_array := _CloneDeep(param_collection)
 
@@ -58,8 +28,6 @@ SortObjectArrayBy(param_collection, param_iteratees := "") {
 
 	return l_array
 }
-
-
 
 _InternalSort(param_collection,param_iteratees:="") {
 	l_array := _CloneDeep(param_collection)
@@ -96,11 +64,12 @@ _CloneDeep(param_array) {
 	Objs := {}
 	Obj := param_array.Clone()
 	Objs[&param_array] := Obj ; Save this new array
+
 	for Key, Value in Obj {
 		if (IsObject(Value)) ; if it is a subarray
 			Obj[Key] := Objs[&Value] ; if we already know of a refrence to this array
-			? Objs[&Value] ; Then point it to the new array
-			: _Clone(Value) ; Otherwise, clone this sub-array
+				? Objs[&Value]  ; Then point it to the new array
+				: _Clone(Value) ; Otherwise, clone this sub-array
 	}
 
 	return Obj

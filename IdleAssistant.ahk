@@ -1,65 +1,55 @@
 SetKeyDelay, 0
 SetMouseDelay, 0
+SetDefaultMouseSpeed, 0
 SetWinDelay, 0
 
 im := new IdleMaster()
 
-*>#Enter::im.Play()
-*>#End::im.StopNextMatch()
-*>^Home::im.InsertSetup()
+*<!Enter::im.RunClients(true)
+*>!Enter::im.Run()					; Steam clients launch and game loop launch
 
-*>^PgDn::im.FindDerankGame()
+*>#Enter::im.Play()					; Game loop launch (withot increased delay for first game)
+*>#>^Enter::im.Play(false, true)	; Game loop launch (with increased delay for first game)
+*>#>+Enter::im.Play(true)			; Game loop launch in the game
 
-*>^Up::im.ReconnectCycle(true)
-*<#Up::im.DerankReconnectCycle()
-*>^Down::im.CancelReconnectCycle()
+*>^Down::im.CancelReconnectCycle()	; Canceling game loop
+*>#End::im.StopNextMatch()			; Will complete the game loop after the current match
 
-*<#A::im.AcceptGame(im.team1)
-*<#R::im.CreateTeam(im.team1)
-*<#D::im.DisbandTeam(im.team1)
-*<#Left::im.Disconnect(im.team1)
-*<#Right::im.Reconnect(im.team1)
+*>^Home::im.InsertSetups()
 
-*>#A::im.AcceptGame(im.team2)
-*>#R::im.CreateTeam(im.team2)
-*>#D::im.DisbandTeam(im.team2)
-*>#Left::im.Disconnect(im.team2)
-*>#Right::im.Reconnect(im.team2)
+*>#Up::im.ActivateAll()
+*>#Down::im.MinimizeAll()
+*>#Left::im.team1.ActivateWindows()
+*>#Right::im.team2.ActivateWindows()
 
-*>^\::im.InsertLaunchOptions()
+*>^-::im.Test()
 
-*<#Numpad1::im.ActivateGameWindows(im.team1)
-*<#Numpad2::im.ActivateGameWindows(im.team2)
+*<#A::im.team1.AcceptGame()
+*>#A::im.team2.AcceptGame()
 
-*<^Numpad0::im.team1[1].InsertIdentity()
-*<^Numpad1::im.team1[2].InsertIdentity()
-*<^Numpad2::im.team1[3].InsertIdentity()
-*<^Numpad3::im.team1[4].InsertIdentity()
-*<^Numpad4::im.team1[5].InsertIdentity()
+*<#R::im.team1.CreateTeam()
+*>#R::im.team2.CreateTeam()
 
-*<^Numpad5::im.team2[1].InsertIdentity()
-*<^Numpad6::im.team2[2].InsertIdentity()
-*<^Numpad7::im.team2[3].InsertIdentity()
-*<^Numpad8::im.team2[4].InsertIdentity()
-*<^Numpad9::im.team2[5].InsertIdentity()
+*<#D::im.team1.DisbandTeam()
+*>#D::im.team2.DisbandTeam()
 
-*<!Numpad0::im.team1[1].InsertIdentity(false)
-*<!Numpad1::im.team1[2].InsertIdentity(false)
-*<!Numpad2::im.team1[3].InsertIdentity(false)
-*<!Numpad3::im.team1[4].InsertIdentity(false)
-*<!Numpad4::im.team1[5].InsertIdentity(false)
+*<#.::im.team1.Reconnect()
+*>#.::im.team2.Reconnect()
 
-*<!Numpad5::im.team2[1].InsertIdentity(false)
-*<!Numpad6::im.team2[2].InsertIdentity(false)
-*<!Numpad7::im.team2[3].InsertIdentity(false)
-*<!Numpad8::im.team2[4].InsertIdentity(false)
-*<!Numpad9::im.team2[5].InsertIdentity(false)
+*<#,::im.team1.Disconnect()
+*>#,::im.team2.Disconnect()
 
-*<!S::im.RunSteamClients()
+*>^F12::im.Quit()
 
-*>^F12::
-	im.QuitAll()
-	ExitApp
-return
+*<^Numpad0::im.RunClient(1, true)
+*<^Numpad1::im.RunClient(2, true)
+*<^Numpad2::im.RunClient(3, true)
+*<^Numpad3::im.RunClient(4, true)
+*<^Numpad4::im.RunClient(5, true)
+*<^Numpad5::im.RunClient(6, true)
+*<^Numpad6::im.RunClient(7, true)
+*<^Numpad7::im.RunClient(8, true)
+*<^Numpad8::im.RunClient(9, true)
+*<^Numpad9::im.RunClient(10, true)
 
 #Include, IdleMaster.ahk

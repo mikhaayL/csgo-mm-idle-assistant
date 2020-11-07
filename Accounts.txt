@@ -1,39 +1,49 @@
 login
 password
 friend-code
+shared-secret
 
 login
 password
 friend-code
+shared-secret
 
 login
 password
 friend-code
+shared-secret
 
 login
 password
 friend-code
+shared-secret
 
 login
 password
 friend-code
+shared-secret
 
 login
 password
 friend-code
+shared-secret
 
 login
 password
 friend-code
+shared-secret
 
 login
 password
 friend-code
+shared-secret
 
 login
 password
 friend-code
+shared-secret
 
 login
 password
 friend-code
+shared-secret

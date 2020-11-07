@@ -1,26 +1,107 @@
 #Include, Defaults.ahk
 #Include, Account.ahk
-#Include, Beeps.ahk
+#Include, Team.ahk
+
+class SteamGuard {
+	__New(tfaGenerateCodeUrl) {
+		this.tfaGenerateCodeUrl := tfaGenerateCodeUrl
+	}
+
+	GetTfaCode(secret) {
+		request := ComObjCreate("WinHttp.WinHttpRequest.5.1")
+		request.Open("POST", this.tfaGenerateCodeUrl)
+		request.Send(secret)
+		request.WaitForResponse()
+
+		return request.ResponseText
+	}
+}
+
+class ActionWrapper {
+	Before(block := false) {
+		this.BeforeActionBeep()
+
+		if (block)
+			BlockInput, On
+
+		WinGet, uid, ID, A
+		MouseGetPos, x, y
+
+		this.window := uid
+		this.mouseX := x
+		this.mouseY := y
+	}
+
+	After(block := false) {
+		uid := this.window
+		x   := this.mouseX
+		y   := this.mouseY
+
+		WinActivate, ahk_id %uid%
+		MouseMove, x, y, 0
+
+		if (block) {
+			BlockInput, Off
+			this.ReleasePressedKeys()
+		}
+
+		this.AfterActionBeep()
+	}
+
+	ReleasePressedKeys() {
+		Loop, 0xFF
+			if GetKeyState(key := Format("VK{:X}", A_Index))
+				SendInput, {%key% up}
+	}
+
+	BeforeActionBeep() {
+		SoundBeep, 1000, 100
+	}
+
+	AfterActionBeep() {
+		SoundBeep, 500, 100
+	}
+}
 
 class IdleMaster {
 	__New() {
+		this.actionWrapper := new ActionWrapper()
 		this.cycleToggle := false
 		this.LoadLaunchOptions()
 		this.LoadGameSettings()
+		this.LoadLayout()
 		this.InitAccounts()
-		this.SetupTeams()
 		SuccessBeep()
 	}
 
+	Test() {
+		SoundBeep, 500, 50
+	}
+
 	LoadLaunchOptions() {
-		FileReadLine, launchOptions, LaunchOptions.txt, 1
-		this.launchOptions := launchOptions
+		launchOptions := []
+		Loop, Read, LaunchOptions.txt
+			launchOptions[A_Index] := A_LoopReadLine
 
-		FileReadLine, startDelay, LaunchOptions.txt, 2
-		this.startDelay := startDelay
+		this.steamLaunchOptions := launchOptions[1]
+		this.gamelaunchOptions := launchOptions[2]
+		this.steamGuard := new SteamGuard(launchOptions[3])
+		this.warmup := launchOptions[4]
+		this.teamLoadDelay := launchOptions[5]
+		this.beforeRoundDelay := launchOptions[6]
+		this.afterRoundDelay := launchOptions[7]
+		this.halfMatchDelay  := launchOptions[8]
+		this.additionalDelay := launchOptions[9]
 
-		FileReadLine, teamLoadDelay, LaunchOptions.txt, 3
-		this.teamLoadDelay := teamLoadDelay
+		this.disconnectDelay := this.afterRoundDelay
+		this.disconnectDelay += this.beforeRoundDelay
+		this.disconnectDelay += this.additionalDelay
+		this.disconnectDelay -= this.teamLoadDelay
+
+		this.reconnectDelay := this.afterRoundDelay
+		this.reconnectDelay += this.beforeRoundDelay
+		this.reconnectDelay += this.additionalDelay
+		this.reconnectDelay += this.teamLoadDelay
 	}
 
 	LoadGameSettings() {
@@ -29,13 +110,18 @@ class IdleMaster {
 			this.gameSettings[A_Index] := A_LoopReadLine
 	}
 
+	LoadLayout() {
+		this.layout := []
+		Loop, Read, Layout.txt
+			this.layout[A_Index] := A_LoopReadLine
+	}
+
 	LoadAccounts() {
 		this.accounts    := []
 		this.accounts[1] := []
 
-		paramRows := 4
+		paramRows  := 5
 		paramIndex := 1
-		accountIndex := 0
 		Loop, Read, Accounts.txt
 		{
 			accountIndex := Floor(A_Index / paramRows) + 1
@@ -57,64 +143,33 @@ class IdleMaster {
 		this.LoadAccounts()
 		Loop % this.accounts.Length()
 		{
-			login := this.accounts[A_Index][1]
-			pass  := this.accounts[A_Index][2]
-			code  := this.accounts[A_Index][3]
-			setups := this.gameSettings
+			login  := this.accounts[A_Index][1]
+			pass   := this.accounts[A_Index][2]
+			code   := this.accounts[A_Index][3]
+			secret := this.accounts[A_Index][4]
 
-			account := new Account(login, pass, code, setups)
+			account := new Account(login, pass, code, secret)
 			this.accounts[A_Index] := account
 		}
 
 		this.SetupProcesses()
-	}
-
-	GetProcesses(processName) {
-		_processes := []
-		WinGet, processList, List, ahk_exe %processName%
-		Loop, %processList%
-		{
-			uid := processList%A_Index%
-			WinGet, pid, PID, ahk_id %uid%
-			creationTime := GetProcessCreationTime(pid)
-			WinGet, lastUid, IDLast, ahk_pid %pid%
-
-			_processes[pid] := { "uid": lastUid, "time": creationTime }
-		}
-
-		index := 1
-		processes := []
-		Loop, % _processes.Length()
-		{
-			process := _processes[A_Index]
-			if (!process)
-				continue
-
-			processes[index] := process
-			index++
-		}
-
-		return SortObjectArrayBy(processes, "time")
+		this.SetupTeams()
 	}
 
 	SetupProcesses() {
-		gameProcesses := this.GetProcesses("csgo.exe")
-		if (gameProcesses.Length() == 0)
-			steamProcesses := this.GetProcesses("steam.exe")
+		gameProcesses := GetProcessUids("csgo.exe")
+		this.launched := gameProcesses.Length() > 0
 
 		Loop, % this.accounts.Length()
-		{
-			this.accounts[A_Index].gameUid := gameProcesses[A_Index].uid
-			this.accounts[A_Index].steamUid := steamProcesses[A_Index].uid
-		}
+			this.accounts[A_Index].uid := gameProcesses[A_Index].uid
 	}
 
 	SetupTeams() {
 		this.team1 := []
 		this.team2 := []
 
-		size := 5
-		index := 1
+		size   := 5
+		index  := 1
 		length := size * 2
 		While, index <= length {
 			if (index > size)
@@ -125,43 +180,57 @@ class IdleMaster {
 			index++
 		}
 
-		if (this.accounts[1].steamUid) {
-			this.FormSteamLayout(this.team1)
-			this.FormSteamLayout(this.team2)
-		}
+		this.team1 := new Team(this.team1)
+		this.team2 := new Team(this.team2)
 	}
 
-	Play() {
+	Sleep(duration) {
+		passed := 0
+		delay  := 500
+
+		While, (passed + delay) < duration {
+			if (!this.cycleToggle)
+				return
+
+			Sleep, delay
+			passed += delay
+		}
+
+		Sleep, duration - passed
+	}
+
+	Play(inGame := false, firstGame := false) {
 		this.cycleToggle := true
 		this.toNextMatch := true
 
+		delay := this.warmup
+		delay += this.afterRoundDelay
+		delay += this.beforeRoundDelay
+		delay += this.additionalDelay
+
+		delay += this.teamLoadDelay * 2
+
+		if (!inGame) {
+			this.FindGame()
+			additionalDelay := 0
+			if (firstGame)
+				additionalDelay := this.teamLoadDelay * 2
+
+			this.Sleep(delay + additionalDelay)
+		}
+
 		While, this.cycleToggle && this.toNextMatch {
-			this.SetupActiveWindow()
-
-			if (this.cycleToggle)
-				this.FindGame()
-
-			this.ReturnToActiveWindow()
-
-			Sleep, this.startDelay
-
-			if (this.cycleToggle)
-				this.ReconnectCycle()
+			this.ReconnectCycle()
+			this.FindGame()
+			this.Sleep(delay)
 		}
 
 		this.cycleToggle := false
 		this.toNextMatch := false
 	}
 
-	ReconnectCycle(test := false) {
-		if (test) {
-			if (this.cycleToggle)
-				return
-
-			this.cycleToggle := true
-		}
-
-		round := 1
+	ReconnectCycle() {
+		round  := 1
 		rounds := 30
 		While, round <= rounds && this.cycleToggle {
 			this.PerformReconnectCycle(this.team2, round)
@@ -171,21 +240,13 @@ class IdleMaster {
 		if (!this.cycleToggle)
 			return
 
-		Sleep, 5000
-		this.Disconnect(this.team1)
-		this.Disconnect(this.team2)
-		Sleep, 5000
+		this.Sleep(8000)
+		this.Snapshot()
+		this.Sleep(30000)
+		this.Snapshot()
 
-		if (test)
-			this.cycleToggle := false
-	}
-
-	FirstReconnectCycle(team, ByRef round) {
-		this.Disconnect(team)
-		Sleep, 1000
-		this.Reconnect(team)
-		Sleep, 25000
-		round++
+		this.team1.Disconnect()
+		this.team2.Disconnect()
 	}
 
 	PerformReconnectCycle(team, ByRef round) {
@@ -194,22 +255,47 @@ class IdleMaster {
 			return
 		}
 
-		this.Disconnect(team)
-		Sleep, 25000 - this.teamLoadDelay
-		round++
-
+		team.Disconnect()
+		this.Sleep(this.disconnectDelay)
 		if (!this.cycleToggle)
 			return
+
+		round++
 
 		if (round == 16)
-			Sleep, 7000
+			this.Sleep(this.halfMatchDelay)
 
-		this.Reconnect(team)
-		Sleep, this.teamLoadDelay + 25000
-		round++
+		team.Reconnect()
+		if (round < 30)
+			this.Sleep(this.reconnectDelay)
+		else
+			this.Sleep(this.teamLoadDelay)
 
 		if (!this.cycleToggle)
 			return
+
+		round++
+	}
+
+	FirstReconnectCycle(team, ByRef round) {
+		delay := this.afterRoundDelay
+		delay += this.beforeRoundDelay
+		delay += this.additionalDelay
+
+		team.Disconnect()
+		Sleep, 500
+		team.Reconnect()
+		this.Sleep(delay)
+
+		round++
+	}
+
+	Snapshot() {
+		SendInput, {RCtrl down}
+		Sleep, 100
+		SendInput, {Insert}
+		Sleep, 100
+		SendInput, {RCtrl up}
 	}
 
 	StopNextMatch() {
@@ -222,93 +308,31 @@ class IdleMaster {
 		SuccessBeep()
 	}
 
-	InsertLaunchOptions() {
-		SendInput -windowed -noborder -w 640 -h 480 -console
-		Sleep, 100
-
-		launchOptions := this.launchOptions
-		SendInput {Text} %launchOptions%
-		Sleep, 100
-
-		SendInput {Enter}
-	}
-
-	InsertSetup() {
-		this.FormGameLayout(this.team1)
-		this.FormGameLayout(this.team2)
+	InsertSetups() {
+		this.SetupProcesses()
 
 		Loop, % this.accounts.Length()
-			this.accounts[A_Index].InsertSetup()
+			this.accounts[A_Index].InsertSetup(this.gameSettings)
 
-		this.team1[1].OpenFindGame()
-		this.team2[1].OpenFindGame()
-
+		Sleep, 100
 		SuccessBeep()
 	}
 
-	FindDerankGame() {
-		this.CreateTeam(this.team1)
-		this.team1[1].ClickFindGame()
-
-		While, !this.HaveAccept(this.team1)
-			Sleep, 100
-
-		this.AcceptGame(this.team1)
-		FindGameSuccessBeep()
-	}
-
-	DerankReconnectCycle() {
-		this.cycleToggle := true
-
-		round := 1
-		rounds := 16
-		While, round <= rounds && this.cycleToggle {
-			this.Disconnect(this.team1)
-			Sleep, 25000 - this.teamLoadDelay
-			round++
-
-			if (!this.cycleToggle)
-				return
-
-			if (round == 16)
-				Sleep, 7000
-
-			this.Reconnect(this.team1)
-			Sleep, this.teamLoadDelay + 25000
-			round++
-
-			if (!this.cycleToggle)
-				return
-		}
-
-		if (!this.cycleToggle)
-			return
-
-		Sleep, 5000
-		this.Disconnect(this.team1)
-		Sleep, 5000
-
-		this.cycleToggle := false
-	}
-
 	FindGame() {
-		if (this.cycleToggle)
-			this.CreateTeam(this.team1)
-
-		if (this.cycleToggle)
-			this.CreateTeam(this.team2)
-
-		this.team1[1].ClickFindGame()
-		this.team2[1].ClickFindGame()
+		this.team1.CreateTeam()
+		this.team2.CreateTeam()
 
 		readyTeam1 := false
 		readyTeam2 := false
 		While, !readyTeam1 && !readyTeam2 && this.cycleToggle {
-			if (!readyTeam1 && this.HaveAccept(this.team1))
+			this.team1.ClickFindGame(true)
+			this.team2.ClickFindGame(true)
+
+			if (!readyTeam1 && this.team1.HasAccept())
 				readyTeam1 := true
 
-			if (!readyTeam2 && this.HaveAccept(this.team2)) {
-				if (!readyTeam1 && this.HaveAccept(this.team1))
+			if (!readyTeam2 && this.team2.HasAccept()) {
+				if (!readyTeam1 && this.team1.HasAccept())
 					readyTeam1 := true
 
 				readyTeam2 := true
@@ -319,169 +343,171 @@ class IdleMaster {
 			return
 
 		if (readyTeam1 && readyTeam2) {
-			FindGameSuccessBeep()
-
-			this.AcceptGame(this.team1)
-			this.AcceptGame(this.team2)
+			this.team1.AcceptGame()
+			this.team2.AcceptGame()
 
 			return
 		}
 
-		if (readyTeam1 && !readyTeam2)
-			this.team2[1].ClickFindGame()
+		if (readyTeam1 && !readyTeam2) {
+			this.team2.ClickFindGame(false)
+			this.AwaitToRegroup(this.team1)
+		}
 
-		if (readyTeam2 && !readyTeam1)
-			this.team1[1].ClickFindGame()
+		if (readyTeam2 && !readyTeam1) {
+			this.team1.ClickFindGame(false)
+			this.AwaitToRegroup(this.team2)
+		}
 
 		this.RegroupTeams()
 	}
 
+	AwaitToRegroup(team) {
+		team.AcceptGame(5)
+
+		While, % team.HasAccept(1)
+			Sleep, 1000
+
+		team.ClickFindGame(false)
+	}
+
 	RegroupTeams() {
-		FindGameFailureBeep()
+		this.team1.DisbandTeam()
+		this.team2.DisbandTeam()
 
-		Sleep 25000
-
-		if (!this.cycleToggle)
-			return
-
-		this.DisbandTeam(this.team1)
-		this.DisbandTeam(this.team2)
-
-		Sleep 25000
-
+		this.Sleep(30000)
 		if (!this.cycleToggle)
 			return
 
 		this.FindGame()
 	}
 
-	HaveAccept(team) {
-		Loop, % team.Length()
-			if (!team[A_Index].HaveAccept())
-				return false
+	Run() {
+		if (this.launched)
+			return
 
-		return true
+		SoundBeep, 900, 100
+		this.RunClients()
+		this.InsertSetups()
+		ReadyBeep()
+		this.Play(false, true)
 	}
 
-	AcceptGame(team) {
-		Loop, % team.Length()
-			team[A_Index].ClickAccept()
-	}
+	RunClients(pure := false) {
+		this.actionWrapper.Before()
 
-	FormGameLayout(team) {
-		firstTeam := this.accounts[1].login == team[1].login
+		Loop, % this.accounts.Length()
+			this.RunClient(A_Index, pure, 10000)
 
-		team[2].MoveGame(0, 30)
-		team[3].MoveGame(0, 540)
+		this.actionWrapper.After()
 
-		team[1].MoveGame(640, firstTeam ? 30 : 540)
-
-		team[4].MoveGame(1280, 30)
-		team[5].MoveGame(1280, 540)
-	}
-
-	FormSteamLayout(team) {
-		firstTeam := this.accounts[1].login == team[1].login
-		y := firstTeam ? 100 : 600
-		padding := 50
-
-		Loop, % team.Length()
-		{
-			width := 320
-			height := 320
-			x := (A_Index * padding) + (A_Index * width - width)
-			team[A_Index].MoveSteam(x, y, width, height)
+		if (!pure) {
+			SoundBeep, 500, 200
+			Sleep, 100000
+			SoundBeep, 1000, 100
+			SoundBeep, 1000, 100
 		}
 	}
 
-	ActivateGameWindows(team) {
-		Loop, % team.Length()
-			team[A_Index].ActivateGame()
+	RunClient(index, pure := false, after := 0) {
+		launchOptions := this.GetSteamArguments(index, pure)
+		if (!pure)
+			launchOptions .= this.GetSteamAppArguments(index)
+
+		tfaCode := this.GetTfaCode(index)
+
+		Run, "A:\Programs\Steam\Steam.exe" %launchOptions%, , , pid
+
+		if (tfaCode)
+			this.InputTfaCode(pid, tfaCode)
+
+		if (!pure)
+			Sleep, after
 	}
 
-	CreateTeam(team) {
-		this.SendInvites(team)
-		team[1].OpenFindGame()
-		this.AcceptInvites(team)
+	GetSteamArguments(index, pure := false) {
+		account := this.accounts[index]
+		credential := account.login . " " . account.password
+		launchOptions := " -login " . credential
+
+		if (!pure)
+			launchOptions .= " " . this.steamLaunchOptions
+
+		return launchOptions
 	}
 
-	SendInvites(team) {
-		Loop, % team.Length()
-			if (A_Index > 1)
-				team[1].SendInvite(team[A_Index].friendCode)
+	GetSteamAppArguments(index) {
+		launchOptions := " -applaunch 730"
+		launchOptions .= " -windowed -noborder -w 640 -h 480 -console"
+		launchOptions .= " " . this.gamelaunchOptions
+
+		coordinates   := this.layout[index]
+		launchOptions .= " " . coordinates
+
+		return launchOptions
 	}
 
-	AcceptInvites(team) {
-		Loop, % team.Length()
-			if (A_Index > 1)
-				team[A_Index].ToLobby()
+	GetTfaCode(index) {
+		secret := this.accounts[index].secret
+		if (!secret)
+			return
+
+		return this.steamGuard.GetTfaCode(secret)
 	}
 
-	DisbandTeam(team) {
-		Loop, % team.Length() - 1
-			team[A_Index].LeaveFromLobby()
+	InputTfaCode(pid, tfaCode) {
+		tfaWindow := "Steam Guard - Computer Authorization Required"
+
+		WinWait, %tfaWindow%
+		WinActivate, ahk_pid %pid%
+		Sleep, 10
+
+		SendInput, {Text}%tfaCode%
+		Sleep, 10
+		SendInput, {Enter Down}
+		Sleep, 10
+		SendInput, {Enter Up}
+		Sleep, 500
+
+		if WinExist(tfaWindow)
+			this.InputTfaCode(pid, tfaCode)
 	}
 
-	SetupActiveWindow() {
-		BeforeActionBeep()
-
-		WinGet, uid, ID, A
-		MouseGetPos, xpos, ypos
-
-		this.activeWindow := uid
-		this.activeXpos := xpos
-		this.activeYpos := ypos
-	}
-
-	ReturnToActiveWindow() {
-		uid := this.activeWindow
-		WinActivate ahk_id %uid%
-
-		xpos := this.activeXpos
-		ypos := this.activeYpos
-		MouseMove, xpos, ypos, 0
-
-		AfterActionBeep()
-	}
-
-	Disconnect(team) {
-		this.SetupActiveWindow()
-
-		Loop, % team.Length()
-			team[A_Index].Disconnect()
-
-		this.ReturnToActiveWindow()
-	}
-
-	Reconnect(team) {
-		this.SetupActiveWindow()
-
-		Loop, % team.Length()
-			team[A_Index].Reconnect()
-
-		this.ReturnToActiveWindow()
-	}
-
-	RunSteamClients() {
+	MinimizeAll() {
 		Loop, % this.accounts.Length()
 		{
-			Run, A:\Programs\Steam\Steam.exe
-			Sleep, 1000
+			uid := this.accounts[A_Index].uid
+			if (uid)
+				WinMinimize, ahk_id %uid%
 		}
-
-		SuccessBeep()
 	}
 
-	QuitAll() {
+	ActivateAll() {
+		this.actionWrapper.Before()
+
+		Loop, % this.accounts.Length()
+			this.accounts[A_Index].Activate()
+
+		this.actionWrapper.After()
+	}
+
+	Quit() {
+		SoundBeep, 1000, 100
+
 		Loop, % this.accounts.Length()
 			this.accounts[A_Index].CloseGame()
 
-		Sleep, 2000
+		if (this.launched)
+			Sleep, 2000
 
-		Loop, % this.accounts.Length()
+		Loop, % this.accounts.Length() * 2
 		{
+			Process, Close, csgo.exe
 			Process, Close, steam.exe
-			Sleep, 300
+			Sleep, 500
 		}
+
+		ExitBeep()
+		ExitApp
 	}
 }

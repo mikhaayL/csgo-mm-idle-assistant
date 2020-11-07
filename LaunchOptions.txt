@@ -1,3 +1,9 @@
--novid -no-browser -nohltv -nojoy +violence_hblood 0
-125000
-10000
+-no-browser -silent
+-novid -nojoy -no-browser -nohltv -nosound
+http://localhost:3000
+60000
+11000
+15000
+5000
+7000
+4000

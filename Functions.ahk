@@ -37,7 +37,7 @@ GetProcessUids(processName) {
 		creationTime := GetProcessCreationTime(pid)
 		WinGet, lastUid, IDLast, ahk_pid %pid%
 
-		_processes[pid] := { "uid": lastUid, "time": creationTime }
+		_processes[pid] := { "pid": pid, "uid": lastUid, "time": creationTime }
 	}
 
 	index := 1

@@ -7,10 +7,12 @@ class SteamGuard {
 		this.tfaGenerateCodeUrl := tfaGenerateCodeUrl
 	}
 
-	GetTfaCode(secret) {
+	GetTfaCode(secret, timeIndent) {
+		data := Format("{ ""secret"": ""{:s}"", ""time_indent"": {:d} }", secret, timeIndent)
+
 		request := ComObjCreate("WinHttp.WinHttpRequest.5.1")
 		request.Open("POST", this.tfaGenerateCodeUrl)
-		request.Send(secret)
+		request.Send(data)
 		request.WaitForResponse()
 
 		return request.ResponseText
@@ -158,10 +160,14 @@ class IdleMaster {
 
 	SetupProcesses() {
 		gameProcesses := GetProcessUids("csgo.exe")
+		steamProcesses := GetProcessUids("steam.exe")
 		this.launched := gameProcesses.Length() > 0
 
 		Loop, % this.accounts.Length()
 			this.accounts[A_Index].uid := gameProcesses[A_Index].uid
+
+		Loop, % this.accounts.Length()
+			this.accounts[A_Index].steamPid := steamProcesses[A_Index].pid
 	}
 
 	SetupTeams() {
@@ -224,6 +230,9 @@ class IdleMaster {
 			this.FindGame()
 			this.Sleep(delay)
 		}
+
+		if (this.cycleToggle && !this.toNextMatch)
+			this.Quit()
 
 		this.cycleToggle := false
 		this.toNextMatch := false
@@ -316,18 +325,21 @@ class IdleMaster {
 
 		Sleep, 100
 		SuccessBeep()
+		this.ActivateAll()
 	}
 
 	FindGame() {
 		this.team1.CreateTeam()
 		this.team2.CreateTeam()
 
+		Sleep, 500
+
+		While, !this.team1.ClickFindGame(true) || !this.team2.ClickFindGame(true)
+			this.Sleep(1000)
+
 		readyTeam1 := false
 		readyTeam2 := false
 		While, !readyTeam1 && !readyTeam2 && this.cycleToggle {
-			this.team1.ClickFindGame(true)
-			this.team2.ClickFindGame(true)
-
 			if (!readyTeam1 && this.team1.HasAccept())
 				readyTeam1 := true
 
@@ -397,16 +409,16 @@ class IdleMaster {
 		this.actionWrapper.Before()
 
 		Loop, % this.accounts.Length()
-			this.RunClient(A_Index, pure, 10000)
-
-		this.actionWrapper.After()
+			this.RunClient(A_Index, pure, 15)
 
 		if (!pure) {
 			SoundBeep, 500, 200
-			Sleep, 100000
+			Sleep, 120000
 			SoundBeep, 1000, 100
 			SoundBeep, 1000, 100
 		}
+
+		this.actionWrapper.After()
 	}
 
 	RunClient(index, pure := false, after := 0) {
@@ -414,15 +426,32 @@ class IdleMaster {
 		if (!pure)
 			launchOptions .= this.GetSteamAppArguments(index)
 
-		tfaCode := this.GetTfaCode(index)
+		timeIndent := 5
+		While, timeIndent >= 0
+		{
+			Run, "A:\Programs\Steam\Steam.exe" %launchOptions%, , , pid
+			tfaCode := this.GetTfaCode(index, timeIndent)
 
-		Run, "A:\Programs\Steam\Steam.exe" %launchOptions%, , , pid
+			if (tfaCode)
+				this.InputTfaCode(pid, tfaCode)
 
-		if (tfaCode)
-			this.InputTfaCode(pid, tfaCode)
+			if (!pure) {
+				; Sleep, after
+				errorWindow := "Steam - Error"
+				WinWait, %errorWindow%, , after
+				if ErrorLevel
+					break
 
-		if (!pure)
-			Sleep, after
+				; Process, Close, steam.exe
+				this.SetupProcesses()
+				pid := this.accounts[index].steamPid
+				ToolTip, %pid%
+				Process, Close, %pid%
+				Sleep, 1000
+			}
+
+			timeIndent -= 1
+		}
 	}
 
 	GetSteamArguments(index, pure := false) {
@@ -447,18 +476,19 @@ class IdleMaster {
 		return launchOptions
 	}
 
-	GetTfaCode(index) {
+	GetTfaCode(index, timeIndent) {
 		secret := this.accounts[index].secret
 		if (!secret)
 			return
 
-		return this.steamGuard.GetTfaCode(secret)
+		return this.steamGuard.GetTfaCode(secret, timeIndent)
 	}
 
 	InputTfaCode(pid, tfaCode) {
 		tfaWindow := "Steam Guard - Computer Authorization Required"
 
 		WinWait, %tfaWindow%
+		Sleep, 500
 		WinActivate, ahk_pid %pid%
 		Sleep, 10
 
@@ -470,24 +500,32 @@ class IdleMaster {
 		Sleep, 500
 
 		if WinExist(tfaWindow)
-			this.InputTfaCode(pid, tfaCode)
+			this.InputTfaCodeOld(pid, tfaCode)
 	}
 
 	MinimizeAll() {
+		this.actionWrapper.Before()
+		Sleep, 500
+
 		Loop, % this.accounts.Length()
 		{
 			uid := this.accounts[A_Index].uid
 			if (uid)
 				WinMinimize, ahk_id %uid%
 		}
+
+		Sleep, 5000
+		this.actionWrapper.After()
 	}
 
 	ActivateAll() {
 		this.actionWrapper.Before()
+		Sleep, 500
 
 		Loop, % this.accounts.Length()
 			this.accounts[A_Index].Activate()
 
+		Sleep, 3000
 		this.actionWrapper.After()
 	}
 
@@ -503,8 +541,9 @@ class IdleMaster {
 		Loop, % this.accounts.Length() * 2
 		{
 			Process, Close, csgo.exe
+			Sleep, 200
 			Process, Close, steam.exe
-			Sleep, 500
+			Sleep, 100
 		}
 
 		ExitBeep()

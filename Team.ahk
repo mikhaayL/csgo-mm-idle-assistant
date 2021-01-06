@@ -9,7 +9,7 @@ class Team {
 	}
 
 	ClickFindGame(state := true) {
-		this.accounts[this.leader].ClickFindGame(state)
+		return this.accounts[this.leader].ClickFindGame(state)
 	}
 
 	HasAccept(index := 0) {
@@ -79,6 +79,11 @@ class Team {
 	}
 
 	Reconnect() {
+		Loop, % this.accounts.Length()
+			this.accounts[A_Index].Reconnect()
+
+		Sleep, 500
+
 		Loop, % this.accounts.Length()
 			this.accounts[A_Index].Reconnect()
 	}

@@ -8,27 +8,34 @@ class Account {
 
 	OpenPanel() {
 		MouseClick(this.uid,  20,  20, , 50)
-		MouseClick(this.uid, 630, 470, , 300)
+		MouseClick(this.uid, 630, 470, , 50)
 	}
 
 	OpenFindGame() {
-		MouseClick(this.uid, 22, 65, , 500) ; play button
+		this.OpenPanel()
+		MouseClick(this.uid, 22, 65, 300, 500) ; play button
 		MouseClick(this.uid, 80, 80, , 50)  ; competitive button
 	}
 
 	ClickFindGame(state := true) {
+		SoundBeep, 500, 100
 		findGameButtonColor := GetPixelColor(this.uid, 455, 458)
 		SplitRGBColor(findGameButtonColor, red, green, blue)
 
 		if (state && red < 40 || !state && red > 40)
+		{
 			MouseClick(this.uid, 455, 458, , 50) ; start play button
+			return true
+		}
+
+		return false
 	}
 
 	SendInvite(code) {
 		this.OpenPanel()
 
-		MouseClick(this.uid, 620, 111, , 300) ; mail button
-		MouseClick(this.uid, 493, 136, , 300) ; add button
+		MouseClick(this.uid, 620, 121, 300, 150) ; mail button
+		MouseClick(this.uid, 493, 150, , 150) ; add button
 
 		MouseClick(this.uid, 250, 230, , 50)  ; click to input
 		SendText(this.uid, code, , 100)
@@ -42,7 +49,7 @@ class Account {
 			MouseClick(this.uid, 445, 250, , 300) ; invite
 		}
 
-		MouseClick(this.uid, 400, 295, , 300) ; close popup
+		MouseClick(this.uid, 400, 295, , 100) ; close popup
 
 		if (red < 50)
 			this.SendInvite(code)
@@ -52,20 +59,27 @@ class Account {
 		if (!this.uid)
 			return false
 
-		lobbyColor := GetPixelColor(this.uid, 600, 180)
+		lobbyColor := GetPixelColor(this.uid, 638, 180)
 		SplitRGBColor(lobbyColor, red, green, blue)
 
-		return red < 45
+		if (blue < 50)
+			return false
+
+		Sleep, 100
+		lobbyColor := GetPixelColor(this.uid, 638, 180)
+		SplitRGBColor(lobbyColor, red, green, blue)
+
+		return blue > 50
 	}
 
 	ToLobby() {
 		this.OpenPanel()
-		MouseClick(this.uid, 615, 125)
+		MouseClick(this.uid, 615, 135, 300)
 	}
 
 	LeaveFromLobby() {
 		this.OpenPanel()
-		MouseClick(this.uid, 620, 13, , 50)
+		MouseClick(this.uid, 620, 13, 300, 50)
 		MouseClick(this.uid, 620, 43, , 50)
 	}
 
@@ -97,11 +111,13 @@ class Account {
 		SendText(this.uid, "bind ""F8"" ""quit""")
 		SendKey(this.uid, "{Enter}", , 50)
 
-		SendKey(this.uid, "{Esc}", , 50)
+		SendKey(this.uid, "{Esc}")
+		SendKey(this.uid, "{Esc}", 100, 50)
 	}
 
 	Reconnect() {
-		MouseClick(this.uid, 450, 25)
+		MouseClick(this.uid, 435, 270)
+		MouseClick(this.uid, 450, 37)
 	}
 
 	Disconnect() {

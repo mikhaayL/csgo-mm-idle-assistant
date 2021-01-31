@@ -39,6 +39,18 @@ im := new IdleMaster()
 *<#,::im.team1.Disconnect()
 *>#,::im.team2.Disconnect()
 
+*>!,::
+	im.team1.Disconnect()
+	Sleep, 100
+	im.team1.Reconnect()
+Return
+
+*>!.::
+	im.team2.Disconnect()
+	Sleep, 100
+	im.team2.Reconnect()
+Return
+
 *>^F12::im.Quit()
 
 *<^Numpad0::im.RunClient(1, true)
@@ -51,5 +63,16 @@ im := new IdleMaster()
 *<^Numpad7::im.RunClient(8, true)
 *<^Numpad8::im.RunClient(9, true)
 *<^Numpad9::im.RunClient(10, true)
+
+*>^Numpad0::im.RunClient(1, false)
+*>^Numpad1::im.RunClient(2, false)
+*>^Numpad2::im.RunClient(3, false)
+*>^Numpad3::im.RunClient(4, false)
+*>^Numpad4::im.RunClient(5, false)
+*>^Numpad5::im.RunClient(6, false)
+*>^Numpad6::im.RunClient(7, false)
+*>^Numpad7::im.RunClient(8, false)
+*>^Numpad8::im.RunClient(9, false)
+*>^Numpad9::im.RunClient(10, false)
 
 #Include, IdleMaster.ahk

@@ -18,11 +18,8 @@ im := new IdleMaster()
 *>^Home::im.InsertSetups()
 
 *>#Up::im.ActivateAll()
-*>#Down::im.MinimizeAll()
 *>#Left::im.team1.ActivateWindows()
 *>#Right::im.team2.ActivateWindows()
-
-*>^-::im.Test()
 
 *<#A::im.team1.AcceptGame()
 *>#A::im.team2.AcceptGame()

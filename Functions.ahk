@@ -1,9 +1,4 @@
 MouseClick(uid, x, y, before := 0, after := 10) {
-	; lParam := y << 16 | (x & 0xffff)
-	; lParam := (y << 16) | (x & 0xffff)
-	; lParam := x & 0xFFFF | (y & 0xFFFF) << 16
-	; lParam := (y << 16) | (x & 0xffff)
-	; lParam := ((y<<16)^x)
 	lParam := x & 0xFFFF | (y & 0xFFFF) << 16
 
 	Sleep, before

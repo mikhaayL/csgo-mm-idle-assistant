@@ -1,4 +1,4 @@
-mm_dedicated_search_maxping 30
+mm_dedicated_search_maxping 20
 fps_max_menu 30
 fps_max 30
 volume 0

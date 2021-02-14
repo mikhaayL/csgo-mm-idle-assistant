@@ -108,6 +108,9 @@ class Account {
 		SendText(this.uid, "bind ""F4"" ""disconnect""")
 		SendKey(this.uid, "{Enter}", , 50)
 
+		SendText(this.uid, "bind ""F7"" ""toggleconsole""")
+		SendKey(this.uid, "{Enter}", , 50)
+
 		SendText(this.uid, "bind ""F8"" ""quit""")
 		SendKey(this.uid, "{Enter}", , 50)
 
@@ -125,13 +128,8 @@ class Account {
 	}
 
 	CloseGame() {
-		SendKey(this.uid, "{F8}")
-
-		SendKey(this.uid, "{``}", , 50)
-		SendKey(this.uid, "{F8}")
-
-		SendKey(this.uid, "{ё}", , 50)
-		SendKey(this.uid, "{F8}")
+		SendKey(this.uid, "{F7}")
+		SendKey(this.uid, "{F8}", 200, 200)
 	}
 
 	Activate(beep := true) {

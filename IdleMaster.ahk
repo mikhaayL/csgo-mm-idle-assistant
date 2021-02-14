@@ -76,10 +76,6 @@ class IdleMaster {
 		SuccessBeep()
 	}
 
-	Test() {
-		SoundBeep, 500, 50
-	}
-
 	LoadLaunchOptions() {
 		launchOptions := []
 		Loop, Read, LaunchOptions.txt
@@ -242,14 +238,17 @@ class IdleMaster {
 		round  := 1
 		rounds := 30
 		While, round <= rounds && this.cycleToggle {
-			this.PerformReconnectCycle(this.team2, round)
-			this.PerformReconnectCycle(this.team1, round)
+			if (round > 15) {
+				this.PerformReconnectCycle(this.team1, round)
+			} else {
+				this.PerformReconnectCycle(this.team2, round)
+			}
 		}
 
 		if (!this.cycleToggle)
 			return
 
-		this.Sleep(8000)
+		this.Sleep(1000)
 		this.Snapshot()
 		this.Sleep(30000)
 		this.Snapshot()
@@ -259,44 +258,20 @@ class IdleMaster {
 	}
 
 	PerformReconnectCycle(team, ByRef round) {
-		if (round <= 2) {
-			this.FirstReconnectCycle(team, round)
-			return
-		}
-
 		team.Disconnect()
-		this.Sleep(this.disconnectDelay)
-		if (!this.cycleToggle)
+		round++
+		Sleep, 500
+		team.Reconnect()
+
+		this.Sleep(this.teamLoadDelay)
+		if (round < 7 || round > 15 && round < 20)
 			return
 
 		round++
+		this.Sleep(this.afterRoundDelay)
 
 		if (round == 16)
 			this.Sleep(this.halfMatchDelay)
-
-		team.Reconnect()
-		if (round < 30)
-			this.Sleep(this.reconnectDelay)
-		else
-			this.Sleep(this.teamLoadDelay)
-
-		if (!this.cycleToggle)
-			return
-
-		round++
-	}
-
-	FirstReconnectCycle(team, ByRef round) {
-		delay := this.afterRoundDelay
-		delay += this.beforeRoundDelay
-		delay += this.additionalDelay
-
-		team.Disconnect()
-		Sleep, 500
-		team.Reconnect()
-		this.Sleep(delay)
-
-		round++
 	}
 
 	Snapshot() {
@@ -436,21 +411,18 @@ class IdleMaster {
 				this.InputTfaCode(pid, tfaCode)
 
 			if (!pure) {
-				; Sleep, after
 				errorWindow := "Steam - Error"
 				WinWait, %errorWindow%, , after
 				if ErrorLevel
 					break
 
-				; Process, Close, steam.exe
 				this.SetupProcesses()
 				pid := this.accounts[index].steamPid
-				ToolTip, %pid%
-				Process, Close, %pid%
+				RunWait, taskkill /F /PID %pid%
 				Sleep, 1000
 			}
 
-			timeIndent -= 1
+			timeIndent--
 		}
 	}
 
@@ -497,25 +469,10 @@ class IdleMaster {
 		SendInput, {Enter Down}
 		Sleep, 10
 		SendInput, {Enter Up}
-		Sleep, 500
+		Sleep, 1500
 
 		if WinExist(tfaWindow)
 			this.InputTfaCodeOld(pid, tfaCode)
-	}
-
-	MinimizeAll() {
-		this.actionWrapper.Before()
-		Sleep, 500
-
-		Loop, % this.accounts.Length()
-		{
-			uid := this.accounts[A_Index].uid
-			if (uid)
-				WinMinimize, ahk_id %uid%
-		}
-
-		Sleep, 5000
-		this.actionWrapper.After()
 	}
 
 	ActivateAll() {

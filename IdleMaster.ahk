@@ -66,13 +66,13 @@ class ActionWrapper {
 }
 
 class IdleMaster {
-	__New() {
+	__New(path) {
 		this.actionWrapper := new ActionWrapper()
 		this.cycleToggle := false
 		this.LoadLaunchOptions()
 		this.LoadGameSettings()
 		this.LoadLayout()
-		this.InitAccounts()
+		this.InitAccounts(path)
 		SuccessBeep()
 	}
 
@@ -84,12 +84,13 @@ class IdleMaster {
 		this.steamLaunchOptions := launchOptions[1]
 		this.gamelaunchOptions := launchOptions[2]
 		this.steamGuard := new SteamGuard(launchOptions[3])
-		this.warmup := launchOptions[4]
-		this.teamLoadDelay := launchOptions[5]
-		this.beforeRoundDelay := launchOptions[6]
-		this.afterRoundDelay := launchOptions[7]
-		this.halfMatchDelay  := launchOptions[8]
-		this.additionalDelay := launchOptions[9]
+		this.steamPath := launchOptions[4]
+		this.warmup := launchOptions[5]
+		this.teamLoadDelay := launchOptions[6]
+		this.beforeRoundDelay := launchOptions[7]
+		this.afterRoundDelay := launchOptions[8]
+		this.halfMatchDelay  := launchOptions[9]
+		this.additionalDelay := launchOptions[10]
 
 		this.disconnectDelay := this.afterRoundDelay
 		this.disconnectDelay += this.beforeRoundDelay
@@ -114,13 +115,13 @@ class IdleMaster {
 			this.layout[A_Index] := A_LoopReadLine
 	}
 
-	LoadAccounts() {
+	LoadAccounts(path) {
 		this.accounts    := []
 		this.accounts[1] := []
 
 		paramRows  := 5
 		paramIndex := 1
-		Loop, Read, Accounts.txt
+		Loop, Read, %path%
 		{
 			accountIndex := Floor(A_Index / paramRows) + 1
 
@@ -137,8 +138,8 @@ class IdleMaster {
 		}
 	}
 
-	InitAccounts() {
-		this.LoadAccounts()
+	InitAccounts(path) {
+		this.LoadAccounts(path)
 		Loop % this.accounts.Length()
 		{
 			login  := this.accounts[A_Index][1]
@@ -146,7 +147,7 @@ class IdleMaster {
 			code   := this.accounts[A_Index][3]
 			secret := this.accounts[A_Index][4]
 
-			account := new Account(login, pass, code, secret)
+			account := new Account(login, pass, code, secret, this.steamLaunchOptions, this.gamelaunchOption, this.layout[A_Index], this.steamGuard, this.steamPath)
 			this.accounts[A_Index] := account
 		}
 
@@ -248,11 +249,6 @@ class IdleMaster {
 		if (!this.cycleToggle)
 			return
 
-		this.Sleep(1000)
-		this.Snapshot()
-		this.Sleep(30000)
-		this.Snapshot()
-
 		this.team1.Disconnect()
 		this.team2.Disconnect()
 	}
@@ -274,14 +270,6 @@ class IdleMaster {
 			this.Sleep(this.halfMatchDelay)
 	}
 
-	Snapshot() {
-		SendInput, {RCtrl down}
-		Sleep, 100
-		SendInput, {Insert}
-		Sleep, 100
-		SendInput, {RCtrl up}
-	}
-
 	StopNextMatch() {
 		this.toNextMatch := false
 		SuccessBeep()
@@ -296,7 +284,10 @@ class IdleMaster {
 		this.SetupProcesses()
 
 		Loop, % this.accounts.Length()
+		{
 			this.accounts[A_Index].InsertSetup(this.gameSettings)
+			Sleep, 1000
+		}
 
 		Sleep, 100
 		SuccessBeep()
@@ -304,10 +295,21 @@ class IdleMaster {
 	}
 
 	FindGame() {
+		found := false
+		While, !found {
+			found := this.FindGameCycle()
+		}
+	}
+
+	CreateTeams() {
 		this.team1.CreateTeam()
 		this.team2.CreateTeam()
 
 		Sleep, 500
+	}
+
+	FindGameCycle() {
+		this.CreateTeams()
 
 		While, !this.team1.ClickFindGame(true) || !this.team2.ClickFindGame(true)
 			this.Sleep(1000)
@@ -327,15 +329,21 @@ class IdleMaster {
 		}
 
 		if (!this.cycleToggle)
-			return
+			return true
 
 		if (readyTeam1 && readyTeam2) {
 			this.team1.AcceptGame()
 			this.team2.AcceptGame()
 
-			return
+			return true
 		}
 
+		this.RegroupTeams(readyTeam1, readyTeam2)
+
+		return false
+	}
+
+	RegroupTeams(readyTeam1, readyTeam2) {
 		if (readyTeam1 && !readyTeam2) {
 			this.team2.ClickFindGame(false)
 			this.AwaitToRegroup(this.team1)
@@ -346,7 +354,7 @@ class IdleMaster {
 			this.AwaitToRegroup(this.team2)
 		}
 
-		this.RegroupTeams()
+		this.DisbandTeams()
 	}
 
 	AwaitToRegroup(team) {
@@ -358,20 +366,18 @@ class IdleMaster {
 		team.ClickFindGame(false)
 	}
 
-	RegroupTeams() {
+	DisbandTeams() {
 		this.team1.DisbandTeam()
 		this.team2.DisbandTeam()
 
 		this.Sleep(30000)
 		if (!this.cycleToggle)
 			return
-
-		this.FindGame()
 	}
 
 	Run() {
-		if (this.launched)
-			return
+		; if (this.launched)
+		; 	return
 
 		SoundBeep, 900, 100
 		this.RunClients()
@@ -384,11 +390,11 @@ class IdleMaster {
 		this.actionWrapper.Before()
 
 		Loop, % this.accounts.Length()
-			this.RunClient(A_Index, pure, 15)
+			this.accounts[A_Index].RunClient(pure, 10)
 
 		if (!pure) {
 			SoundBeep, 500, 200
-			Sleep, 120000
+			Sleep, 20000
 			SoundBeep, 1000, 100
 			SoundBeep, 1000, 100
 		}
@@ -397,82 +403,7 @@ class IdleMaster {
 	}
 
 	RunClient(index, pure := false, after := 0) {
-		launchOptions := this.GetSteamArguments(index, pure)
-		if (!pure)
-			launchOptions .= this.GetSteamAppArguments(index)
-
-		timeIndent := 5
-		While, timeIndent >= 0
-		{
-			Run, "A:\Programs\Steam\Steam.exe" %launchOptions%, , , pid
-			tfaCode := this.GetTfaCode(index, timeIndent)
-
-			if (tfaCode)
-				this.InputTfaCode(pid, tfaCode)
-
-			if (!pure) {
-				errorWindow := "Steam - Error"
-				WinWait, %errorWindow%, , after
-				if ErrorLevel
-					break
-
-				this.SetupProcesses()
-				pid := this.accounts[index].steamPid
-				RunWait, taskkill /F /PID %pid%
-				Sleep, 1000
-			}
-
-			timeIndent--
-		}
-	}
-
-	GetSteamArguments(index, pure := false) {
-		account := this.accounts[index]
-		credential := account.login . " " . account.password
-		launchOptions := " -login " . credential
-
-		if (!pure)
-			launchOptions .= " " . this.steamLaunchOptions
-
-		return launchOptions
-	}
-
-	GetSteamAppArguments(index) {
-		launchOptions := " -applaunch 730"
-		launchOptions .= " -windowed -noborder -w 640 -h 480 -console"
-		launchOptions .= " " . this.gamelaunchOptions
-
-		coordinates   := this.layout[index]
-		launchOptions .= " " . coordinates
-
-		return launchOptions
-	}
-
-	GetTfaCode(index, timeIndent) {
-		secret := this.accounts[index].secret
-		if (!secret)
-			return
-
-		return this.steamGuard.GetTfaCode(secret, timeIndent)
-	}
-
-	InputTfaCode(pid, tfaCode) {
-		tfaWindow := "Steam Guard - Computer Authorization Required"
-
-		WinWait, %tfaWindow%
-		Sleep, 500
-		WinActivate, ahk_pid %pid%
-		Sleep, 10
-
-		SendInput, {Text}%tfaCode%
-		Sleep, 10
-		SendInput, {Enter Down}
-		Sleep, 10
-		SendInput, {Enter Up}
-		Sleep, 1500
-
-		if WinExist(tfaWindow)
-			this.InputTfaCodeOld(pid, tfaCode)
+		this.accounts[index].RunClient(pure, 10)
 	}
 
 	ActivateAll() {

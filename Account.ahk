@@ -1,9 +1,110 @@
 class Account {
-	__New(login, pass, code, secret) {
+	__New(login, pass, code, secret, steamLaunchOptions, gamelaunchOptions, layout, steamGuard, steamPath) {
 		this.login := login
 		this.password := pass
 		this.friendCode := code
 		this.secret := secret
+		this.steamLaunchOptions := steamLaunchOptions
+		this.gamelaunchOptions := gamelaunchOptions
+		this.layout := layout
+		this.steamGuard := steamGuard
+		this.steamPath := steamPath
+	}
+
+	GetSteamArguments(pure := false) {
+		credential := this.login . " " . this.password
+		launchOptions := " -login " . credential
+
+		if (!pure)
+			launchOptions .= " " . this.steamLaunchOptions
+
+		return launchOptions
+	}
+
+	GetSteamAppArguments() {
+		launchOptions := " -applaunch 730"
+		launchOptions .= " -windowed -noborder -w 640 -h 480 -console"
+		launchOptions .= " " . this.gamelaunchOptions
+
+		coordinates   := this.layout
+		launchOptions .= " " . coordinates
+
+		return launchOptions
+	}
+
+	GetTfaCode(timeIndent) {
+		if (!this.secret)
+			return
+
+		return this.steamGuard.GetTfaCode(this.secret, timeIndent)
+	}
+
+	RunClient(pure := false, after := 5) {
+		launchOptions := this.GetSteamArguments(pure)
+		if (!pure)
+			launchOptions .= this.GetSteamAppArguments()
+
+		runArgs := this.steamPath
+		runArgs .= " " . launchOptions
+		Run, %runArgs%, , , pid
+
+		timeIndent := 5
+		While, timeIndent >= 0
+		{
+			tfaCode := this.GetTfaCode(timeIndent--)
+
+			passed := true
+			if (tfaCode && this.EnterTfaCodeToClient(pid, tfaCode)) {
+				errorWindow := "Steam - Error"
+				WinWait, %errorWindow%, , after
+				if ErrorLevel
+					break
+
+				RunWait, taskkill /F /PID %pid%
+				Sleep, 2000
+				Run, %runArgs%, , , pid
+			}
+		}
+	}
+
+	EnterTfaCodeToClient(pid, tfaCode) {
+		tfaWindow := "Steam Guard - Computer Authorization Required"
+
+		WinWait, %tfaWindow%
+		Sleep, 100
+
+		WinGet, uid, IDLast, ahk_pid %pid%
+		WinActivate, ahk_id %uid%
+		SendText(uid, tfaCode, 10, 10)
+		SendKey(uid, "{Enter}", , 1000)
+
+		return !WinExist(tfaWindow)
+	}
+
+	ManualSignIn() {
+		login := this.login
+		pass := this.password
+		tfaCode := this.GetTfaCode(0)
+
+		SendInput, {Text}%login%
+		Sleep, 50
+		SendInput, {Tab Down}
+		Sleep, 10
+		SendInput, {Tab Up}
+		Sleep, 50
+		SendInput, {Text}%pass%
+		Sleep, 50
+		SendInput, {Enter Down}
+		Sleep, 10
+		SendInput, {Enter Up}
+		Sleep, 500
+
+		SendInput, {Text}%tfaCode%
+		Sleep, 50
+		SendInput, {Enter Down}
+		Sleep, 10
+		SendInput, {Enter Up}
+		Sleep, 1000
 	}
 
 	OpenPanel() {

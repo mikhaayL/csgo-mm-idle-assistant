@@ -3,7 +3,8 @@ SetMouseDelay, 0
 SetDefaultMouseSpeed, 0
 SetWinDelay, 0
 
-im := new IdleMaster()
+accountsPath := A_Args[1]
+im := new IdleMaster(accountsPath)
 
 *<!Enter::im.RunClients(true)
 *>!Enter::im.Run()					; Steam clients launch and game loop launch
@@ -41,6 +42,13 @@ im := new IdleMaster()
 	Sleep, 100
 	im.team1.Reconnect()
 Return
+
+*Pause::
+Process, Close, csgo.exe
+Sleep, 500
+Process, Close, steam.exe
+Sleep, 100
+return
 
 *>!.::
 	im.team2.Disconnect()

@@ -6,7 +6,15 @@ SuspendToggle := false
 
 *>+Backspace::
 	ReloadBeep()
-	Reload
+	try
+	{
+		if A_IsCompiled
+			Run *RunAs "%A_ScriptFullPath%" /restart %1%
+		else
+			Run *RunAs "%A_AhkPath%" /restart "%A_ScriptFullPath%" %1%
+	}
+
+	ExitApp
 return
 
 *>^Del::

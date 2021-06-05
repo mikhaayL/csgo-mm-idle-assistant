@@ -1,5 +1,11 @@
 mm_dedicated_search_maxping 20
+tv_enable 0
 fps_max_menu 30
 fps_max 30
 volume 0
 +duck
+mat_disable_fancy_blending 1
+cl_forcepreload 1
+r_dynamic 0
+sv_allowupload 0
+sv_allowdownload 0
